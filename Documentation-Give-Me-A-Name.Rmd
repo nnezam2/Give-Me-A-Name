@@ -1,0 +1,338 @@
+---
+title: "Documentation for Give Me A Name!"
+author: "Nazanin Nezami"
+date: "2/27/2020"
+output:
+   
+      rmarkdown::github_document:
+      toc: true
+      number_summary: true
+      toc_float: true
+      toc_depth: 3
+      theme: cerulean
+      highlight: espresso 
+      
+     
+---    
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+# bNames() function 
+The main purpose of this function is to generate a list of baby names for any year between 1880 and 2017.  
+
+```{r bNames, echo=FALSE, include=FALSE}
+#### Loading Required libraries
+library(babynames)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+
+#### Loading the Data 
+#str(babynames)
+
+bNames<- function (year,n,pf=0.5)
+{
+  ## pf is optional and its default value is 0.5 
+    pf<-pf 
+    y<-year
+    num<-n
+    
+    if ( year >2017 || year <1880){
+    print(" The year you entered is prior to 1880 or after 2017! There is no data available beyond this range!")
+    }
+    else{
+        
+       data<- babynames %>% 
+            filter(year==y)
+
+        d1<- babynames %>% 
+            filter(year==y, sex=="F")
+
+        d2<- babynames %>% 
+            filter(year==y, sex=="M")
+
+        
+        n1<-pf*num
+        n2<-(1-pf)*num
+
+
+        idx1<-sample(1:nrow(d1), n1, prob=d1$prop,replace = TRUE )
+            new1<-d1[idx1,]
+
+        idx2 <- sample(1:nrow(d2), n2, prob=d2$prop,replace = TRUE)
+            new2<-d2[idx2,] 
+      
+        print("Female names are: ")
+        print(new1$name)
+        
+        print("Male names are: ")
+        print(new2$name )
+            
+    }
+}
+
+```
+##Usage 
+* **bNames(year,n,pf)**
+
+## Arguments
+### Required arguments
+
+*  **year** : a numeric value(integer) which corresponds to a specific year. This value could range between 1880 and 2017. 
+  
+*  **n**: a numeric value(integer) which corresponds to the number of names that the function will return.
+
+### Optional arguments and their default values
+
+*  **pf**: a numeric value (double) which corresponds to the proportion of female babies. The proportion could range from 0 to 1. It's default value is 0.5. 
+
+## Output
+
+The output of the function bNames() is a vector of $n$ names representing a "typical" set of newborn babies in the given year. To accomplish this, the function randomly sample names from a given year in proportion to their popularity. The $pf$ argument determines what proportion of the names produced should be female; In other words, bNames() produces $pf*n$ female names and $(1-pf)*n$ male names by each call.
+
+## Other used packages and tools 
+
+*  **library(babynames)**: This package consists of a single data frame, 'babynames', which contains all the names that occur at least 5 times in each year of the SSA database. The full dataset contains nearly 2 million rows (but loads virtually instantly into R).
+
+*  **library(dplyr)**: Most of the data cleaning and manuplation parts have done by dyplyr functions(filter,group_by,summarize,arrange,etc.) and %>%(pipe). In this case to get the most popular names for the entered year and divide them into two sets based on gender. 
+
+*  **sample() function**: The specified names(by year and gender) are being sampled in proportion to their popularity (reflected by column $prop$ in the babynames data frame). The sampling is done with replacement (replace = TRUE).
+
+## Examples 
+```{r exmple, echo=TRUE}
+#### Test 1
+bNames(1900,100,0.7)
+
+#### Test 2
+bNames(1800,100,0.3)
+
+#### Test 3
+bNames(2000,20)
+```
+
+
+# bNamesPred() function
+The main purpose of this function is to generate a list of baby names for any year between 1880 through 2025. Basically, it enables us to generate names for the near future (untill 2025) based on the observed trend in names' popularity.  
+
+```{r bNamesPred , echo=FALSE, include=FALSE}
+options(warn=-1)
+#### Loading Required libraries
+library(babynames)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(tidyverse)
+
+bNamesPred<- function (year,n,pf)
+{    
+    yy=year
+    number=n
+    pf=pf
+    if ( yy <=2017 & yy>=1880)
+    {
+       bNames(yy,number,pf)
+    }
+    else if (yy<=2025 & yy>=2018) 
+        {
+        print(" The results are based on prediction ") 
+        
+        ## reducing my dataset to get easier 
+        new<- babynames %>%
+        filter(year>=2000 & year<=2017) %>%
+         top_n(15000,prop)
+        # Based on trial, we need at least 15000 obs in order to                        get 1000 positive prediction values (prop) for future
+
+        Year<- data.frame(year =yy) #creating a dataframe to use in predict                                           function
+
+        prediction <- new%>%
+        group_by(name,sex)%>%
+        summarize(pred_prop=predict(lm(prop ~ year),Year) ) %>%
+        filter(pred_prop>=0)%>%
+        arrange(desc(pred_prop)) #pred_prop is my predicted prop for each name
+      
+
+        d1<- prediction  %>% 
+            filter( sex=="F")
+
+        d2<- prediction  %>% 
+            filter( sex=="M")
+
+        
+        n1<-pf*number
+        n2<-(1-pf)*number
+
+
+        idx1<-sample(1:nrow(d1), n1, prob=d1$pred_prop,replace = TRUE )
+            new1<-d1[idx1,]
+
+        idx2 <- sample(1:nrow(d2), n2, prob=d2$pred_prop,replace = TRUE)
+            new2<-d2[idx2,] 
+      
+        print("Female names are: ")
+        print(new1$name)
+        
+        print("Male names are: ")
+        print(new2$name )
+    }
+    else {
+        
+print(" There is no data or prediction available for the year you entered !")      
+    }
+ }
+
+
+```
+
+## Arguments
+### Required arguments
+*  **year** : a numeric value(integer) which corresponds to a specific year. This value could range between 1880 and 2025. 
+  
+*  **n**: a numeric value(integer) which corresponds to the number of names that the function will return. (Note: due to computation time, this number should be less than 1000 for years 2018-2025 )
+
+### Optional arguments and their default values
+*  **pf**: a numeric value (double) which corresponds to the proportion of female babies. The proportion could range from 0 to 1. It's default value is 0.5. 
+
+## Out put
+The output of the function bNamesPred() is a vector of $n$ names representing a "typical" set of newborn babies in the given year. To accomplish this, the function randomly sample names from a given year in proportion to their popularity or try to predict future names based on a predicted popularity (for years after 2017). The $pf$ argument determines what proportion of the names produced should be female; In other words, bNamesPred() produces $pf*n$ female names and $(1-pf)*n$ male names by each call.
+
+## Other used packages and tools 
+
+*  **library(babynames)**: This package consists of a single data frame, 'babynames', which contains all the names that occur at least 5 times in each year of the SSA database. The full dataset contains nearly 2 million rows (but loads virtually instantly into R).
+
+*  **library(dplyr)**: Most of the data cleaning and manuplation parts have done by dyplyr functions(filter,group_by,summarize,arrange,etc.) and %>%(pipe). In this case to get the most popular names for the entered year and divide them into two sets based on gender. 
+
+*  **sample() function**: The specified names(by year and gender) are being sampled in proportion to their popularity (reflected by column $prop$ for years before 2018 and with $pred-prop$ for years 2018-2025). The sampling is done with replacement (replace = TRUE).
+
+*  **lm() function**: Modeling the specified data with Linear regression. In this case $Prop$ would be the response variable and we want to use $year$ in order to find the fit a model to it. 
+
+*  **predict() function**: Making prediction for the $Prop$ value of each name based on the fitted model and the year (2018-2025) which have been defined before. 
+
+
+## Examples 
+```{r new examples, echo=TRUE}
+#### Test 1
+bNamesPred(1800,100,0.3)
+
+#### Test 2
+bNamesPred(2026,100,0.3)
+
+#### Test 3
+bNamesPred(2000,100,0.3)
+
+#### Test 4
+bNamesPred(2022,100,0.3)
+```
+
+## How bNamesPred() function predicts baby names? 
+```{r prediction, echo=TRUE}
+options(warn=-1)
+
+## reducing my dataset to get easier 
+        new<- babynames %>%
+        filter(year>=2000 & year<=2017) %>%
+         top_n(15000,prop)
+         # Based on trial, we need at least 15000 obs in order to get 1000              #positive prediction values (prop) for future
+        
+        Year1<- data.frame(year =2022) #creating a dataframe to use in                                                  #predict function
+        prediction <- new%>%
+        group_by(name,sex)%>%
+        summarize(pred_prop=predict(lm(prop ~ year),Year1) ) %>%
+        filter(pred_prop>=0)%>%
+        arrange(desc(pred_prop)) #pred_prop is my predicted prop for each of                                           #top popular names
+      
+        head(prediction)
+```
+
+As mentioned in the comment part of the above section, bNamesPred() function use a linear regression model to predict the future names. In this regard, we will run the regression model for the most popular 15000 names which belong to recent 17 years(2000-2017). As a result, we usually get about 1000 positive predicted values for the names popularity denoted by $pred-prop$ for each given year(2018-2025). Then, we can use these predicted values of the prop instead of weights to do the sampling part. Finally, we can print a list of names for future (based on n and pf values).
+
+## Popularity of Sophia and Jackson in 2020 
+
+```{r prediction of Sophia and Jachson, echo=TRUE}
+
+# reducing dataset by considering top 15000 names from recent 7 years
+## This section has done above:  
+       # new<- babynames %>%
+       # filter(year>=2000 & year<=2017) %>%
+        # top_n(15000,prop)
+
+        Year2<- data.frame(year =2020) #creating a dataframe to use in predict                                           function for year=2020
+        prediction2 <- new%>%
+        group_by(name,sex)%>%
+        filter(name=="Sophia" || name=="Jackson")%>% 
+        summarize(pred_prop=predict(lm(prop ~ year),Year2) ) %>%
+        filter(pred_prop>=0)%>%
+        arrange(desc(pred_prop)) #pred_prop is my predicted prop for each of                                           top popular names 
+      
+# Now, lets see the prediction for these two names
+        prediction2 
+```
+
+Based on the above model, we can get the predicted prop for these two names which can indicate: 
+
+  * Both predicted prop are positive which means that the popularity of these 2     names will increase in the future, e.g 2020. Therefore, we still may want to     predict them as probable common names in future. 
+  
+  * The predicted prop for Sophia is 0.012 , while the predicted prop for           Jackson is 0.0069. Comparing the popularity values indicates that Sophia        will be more common than Jackson in the 2020. 
+
+  * The model will use the predicted prop values as weights to sample the future     names, so we can expect to get Sophia to appear more Jachson in list of         names for 2020 (although sampling at random) . 
+
+
+## Table of the most 10 popular names in 2020 
+
+```{r summary table , echo=FALSE}
+
+# reducing dataset by considering top 1000 names from recent 7 years
+        tabeldata<- babynames %>%
+        filter(year>=2000 & year<=2017) %>%
+        top_n(1000,prop)
+
+        Year3<- data.frame(year=2020) #creating a dataframe to use in predict                                           function
+        tabel1 <- tabeldata%>%
+          group_by(name,sex)%>%
+          summarize(pred_prop=predict(lm(prop ~ year),Year3) ) %>%
+          filter(pred_prop>=0) %>%
+          arrange(desc(pred_prop)) %>% 
+          ungroup %>%
+          top_n(10,pred_prop)
+      
+
+
+```
+
+```{r table, echo=FALSE}
+knitr::kable(tabel1, caption = 'Tabel of the most predicted popular names in 2020', format = "markdown")  %>% 
+  kable_styling("striped", position = "left")
+```
+
+## Plot of the trend in the top 5 names popularity from 1880 until 2017
+```{r figure, echo=FALSE}
+
+## finding past data top 10 names
+graph <- babynames %>%
+  filter(name==c("Liam","Sophia","Emma", "Olivia","Noah") & 
+           sex==c("M" , "F" , "F" , "F" ,"M"))
+
+##Plotting 
+  ggplot(graph, aes(x = year, y = prop, col=name)) +
+  geom_point(alpha=0.3) + 
+  geom_smooth(method=loess, se=F)  +
+  labs(x = "Year", y = "prop", title = "Graph of past data for top5 2020 most popular names ")+
+    theme_bw()
+
+            
+```
+
+# References  
+
+-<a href="https://cran.r-project.org/web/packages/babynames/babynames.pdf"> Babyname Package</a>
+
+-<a href="https://bookdown.org/yihui/rmarkdown"> Rmarkdown Book</a>
+
+-<a href="https://www.w3schools.com/html/html_links.asp"> HTML Guide</a>
+
+-<a href="https://rstudio.com/wp-content/uploads/2016/03/rmarkdown-cheatsheet-2.0.pdf">Rmarkdown Cheet sheet</a>
